@@ -1,0 +1,609 @@
+{
+  "name": "Buffer Safeguard",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 20
+            }
+          ]
+        }
+      },
+      "id": "2a54390d-a2de-4ec7-8578-82dcd4988abd",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -896,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "YOUR_DATA_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "photo_buffer",
+          "cachedResultUrl": ""
+        },
+        "returnAll": true
+      },
+      "id": "7410fa02-7ad1-4e90-aede-180daaa38236",
+      "name": "Get All Buffers",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -688,
+        144
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst now = new Date();\n\nreturn items.map(item => {\n  const startedAt = new Date(item.json.started_at);\n  const hoursElapsed = (now - startedAt) / (1000 * 60 * 60);\n  \n  let action = 'skip';\n  if (hoursElapsed >= 7) {\n    action = 'auto_close';\n  } else if (hoursElapsed >= 6 && item.json.reminded === 'no') {\n    action = 'remind';\n  }\n  \n  return {\n    json: {\n      ...item.json,\n      hours_elapsed: Math.round(hoursElapsed * 10) / 10,\n      action: action\n    }\n  };\n});"
+      },
+      "id": "84c7f904-2cc3-47f5-b4c2-229b74ca81fb",
+      "name": "Calculate Time",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-autoclose",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "auto_close",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "auto_close"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": false,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-remind",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "remind",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "remind"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "6501398b-de82-48e2-aa37-15cdbe8f32e8",
+      "name": "Route Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        -240,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Photos DB",
+          "cachedResultUrl": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": ""
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Total": "={{ $json.photo_count }}",
+            "Photo_12": "={{ ($json.photo_links || '').split(',')[11] || '' }}",
+            "Photo_11": "={{ ($json.photo_links || '').split(',')[10] || '' }}",
+            "Photo_10": "={{ ($json.photo_links || '').split(',')[9] || '' }}",
+            "Photo_9": "={{ ($json.photo_links || '').split(',')[8] || '' }}",
+            "Photo_8": "={{ ($json.photo_links || '').split(',')[7] || '' }}",
+            "Photo_7": "={{ ($json.photo_links || '').split(',')[6] || '' }}",
+            "Photo_6": "={{ ($json.photo_links || '').split(',')[5] || '' }}",
+            "Photo_5": "={{ ($json.photo_links || '').split(',')[4] || '' }}",
+            "Photo_4": "={{ ($json.photo_links || '').split(',')[3] || '' }}",
+            "Photo_3": "={{ ($json.photo_links || '').split(',')[2] || '' }}",
+            "Photo_2": "={{ ($json.photo_links || '').split(',')[1] || '' }}",
+            "Photo_1": "={{ ($json.photo_links || '').split(',')[0] || '' }}",
+            "Telegram_ID": "={{ $json.telegram_id }}",
+            "Employee": "={{ $json.sender_name }}",
+            "Date ": "={{ $now.format('yyyy-MM-dd HH:mm:ss') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date ",
+              "displayName": "Date ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Employee",
+              "displayName": "Employee",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telegram_ID",
+              "displayName": "Telegram_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_1",
+              "displayName": "Photo_1",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_2",
+              "displayName": "Photo_2",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_3",
+              "displayName": "Photo_3",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_4",
+              "displayName": "Photo_4",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_5",
+              "displayName": "Photo_5",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_6",
+              "displayName": "Photo_6",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_7",
+              "displayName": "Photo_7",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_8",
+              "displayName": "Photo_8",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_9",
+              "displayName": "Photo_9",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_10",
+              "displayName": "Photo_10",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_11",
+              "displayName": "Photo_11",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Photo_12",
+              "displayName": "Photo_12",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "99ee4df8-1951-4cf2-96a9-58ffabe85678",
+      "name": "Auto Close to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        0,
+        0
+      ],
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "deleteRows",
+        "dataTableId": {
+          "__rl": true,
+          "value": "YOUR_DATA_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "photo_buffer",
+          "cachedResultUrl": ""
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "=telegram_id",
+              "condition": "=eq",
+              "keyValue": "={{ $('Calculate Time').item.json.telegram_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "70a16b7a-6495-49f0-99f7-dc744d13fa0d",
+      "name": "Clear Buffer (Auto)",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        224,
+        0
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Calculate Time').item.json.telegram_id }}",
+        "text": "=⚠️ Job auto-closed after {{ $('Calculate Time').item.json.hours_elapsed }} hours. Total photos: {{ $('Calculate Time').item.json.photo_count }}. Next time press \"✅ Finish Job\" when done.",
+        "additionalFields": {}
+      },
+      "id": "ba7838ba-5503-41ee-a4fe-7f02f7d7e8b1",
+      "name": "Notify Auto Close",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        448,
+        0
+      ],
+      "webhookId": "46de4ef7-fccf-41bd-bc73-e456bb322fef",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "YOUR_DATA_TABLE_ID",
+          "mode": "list",
+          "cachedResultName": "photo_buffer",
+          "cachedResultUrl": ""
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "=telegram_id",
+              "condition": "=eq",
+              "keyValue": "={{ $json.telegram_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "reminded": "yes"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telegram_id",
+              "displayName": "telegram_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "sender_name",
+              "displayName": "sender_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "photo_links",
+              "displayName": "photo_links",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "photo_count",
+              "displayName": "photo_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "started_at",
+              "displayName": "started_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reminded",
+              "displayName": "reminded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "8b0a7619-7385-4627-92cb-98bbbd1c03be",
+      "name": "Mark Reminded",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        0,
+        288
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_id }}",
+        "text": "=⏰ Reminder: You have an unfinished job with {{ $json.photo_count }} photo(s). Please press \"✅ Finish Job\" or send /done to complete it.",
+        "additionalFields": {}
+      },
+      "id": "2b166f23-ef68-4336-8db5-7442697c43dd",
+      "name": "Send Reminder",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        224,
+        288
+      ],
+      "webhookId": "60d4a692-e79b-4160-a7df-c83a2a5648ee",
+      "credentials": {
+        "telegramApi": {
+          "id": "YOUR_TELEGRAM_CREDENTIAL_ID",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get All Buffers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Buffers": {
+      "main": [
+        [
+          {
+            "node": "Calculate Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Time": {
+      "main": [
+        [
+          {
+            "node": "Route Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Action": {
+      "main": [
+        [
+          {
+            "node": "Auto Close to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Reminded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Close to Sheets": {
+      "main": [
+        [
+          {
+            "node": "Clear Buffer (Auto)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Buffer (Auto)": {
+      "main": [
+        [
+          {
+            "node": "Notify Auto Close",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Reminded": {
+      "main": [
+        [
+          {
+            "node": "Send Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "bcfb79dc-6798-488a-b7ed-c754da7cb5d6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "11ecebd5528515778bc34034505577df1ce1625b968e0f6f15804755b21f1de0"
+  },
+  "nodeGroups": [],
+  "id": "fzd9wFlpKVCvISk8",
+  "tags": []
+}
